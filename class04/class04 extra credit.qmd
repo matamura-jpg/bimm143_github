@@ -1,0 +1,73 @@
+---
+title: "Class 4: Introduction to Data in R"
+author: "Mai Tamura (PID: A18594079)"
+format: html
+---
+
+```{r}
+source("http://thegrantlab.org/misc/cdc.R")
+
+tail(cdc$height, 20)
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(cdc) +
+  aes(x=height, y=weight) +
+  geom_point(shape=1, size=4, stroke=1) +
+  labs(x="Height (inches)",
+       y="Weight (pounds)") +
+  theme_classic() +
+  geom_smooth(method="lm", se=FALSE)
+```
+
+```{r}
+cor(cdc$height, cdc$weight)
+```
+
+```{r}
+height_m <- cdc$height * 0.0254
+weight_kg <- cdc$weight * 0.454
+
+# Create BMI variable
+bmi <- (weight_kg) / ((height_m)^2)
+
+# Plot height vs BMI
+ggplot(cdc) +
+  aes(x=height, y=bmi) +
+  geom_point(shape=1, size=4, stroke=1) +
+  labs(x="Height (inches)",
+       y="BMI") +
+  theme_classic() +
+  geom_smooth(method="lm", se=FALSE)
+```
+
+```{r}
+cor(cdc$height, bmi)
+```
+
+```{r}
+sum(bmi >= 30)
+
+sum(bmi >= 30)/length(bmi)
+```
+
+```{r}
+ggplot(cdc[1:100,]) +
+  aes(x=height, y=weight) +
+  geom_point(shape=1, size=4, stroke=1) +
+  labs(x="Height (inches)",
+       y="Weight (pounds)") +
+  theme_classic()
+```
+
+```{r}
+sum(bmi >= 30 & cdc$gender == "m")
+```
+
+```{r}
+obesity <- bmi >= 30
+table(obesity, cdc$gender)
+```
+
