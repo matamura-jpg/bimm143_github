@@ -1,0 +1,112 @@
+---
+title: "Class 11: Structural Bioinformatics pt2"
+author: "Mai Tamura (PID: A18594079)"
+format: html
+toc: true
+---
+
+## AlphaFold DB
+
+The EBI maintains the largest database of AlphFold structure prediction models at: https://alphafold.ebi.ac.uk
+
+From last class (before Halloween), we saw that the PDB had 244,290 (Oct 2025)
+
+The total number of protein sequences in UniProtKB is 199,579,901
+
+> **Key point**: This is a  fraction of sequence space that has structural coverage (0.12%)
+
+```{r}
+244290/199579901 * 100
+```
+
+AFDB is attempting to address this gap...
+
+There are Two "Quality Scores" from AlphaFold one for residues (i.e. each amino acid) called **pLDDT score**. The other **PAE** score that measures the confidence in the relative position of two residues (i.e. a score for every pair of residues).
+
+
+## Generating Your own structure predictions
+
+Figures of 5 generated HIV-PR models
+
+![](HIVPR_DIMER_allmodel.png)
+
+At the top model
+
+![](HIVPR_DIMER_topmodel.png)
+
+model 1
+
+![](HIVPR_DIMER_model1.png)
+
+and model 5
+
+![](HIVPR_DIMER_model5.png)
+
+```{r}
+unzip("HIVPR_dimer_23119.result.zip")
+```
+
+## Custom Analysis of resulting models in R
+
+Read key result files into R. The first thing I need to know is what my results directory/folder is called (i.e. its name is different from )
+
+```{r}
+results_dir <- "HIVPR_dimer_23119" 
+pdb_files <- list.files(path=results_dir,
+                        pattern="*.pdb",
+                        full.names = TRUE)
+basename(pdb_files)
+```
+
+```{r}
+library(bio3d)
+
+pdbs <- pdbaln(pdb_files, fit=TRUE, exefile="msa")
+pdbs
+```
+
+```{r}
+pdb <- read.pdb("1hsg")
+```
+
+```{r}
+m1 <- read.pdb(pdb_files[1])
+m1
+```
+
+
+```{r}
+plot.bio3d(m1$atom$b[m1$calpha], typ="l", ylim=c(0,100))
+```
+
+## Residue conservation from alignment file
+
+Find the large AlphaFold alignment file
+
+```{r}
+aln_file <- list.files(path=results_dir,
+                       pattern=".a3m$",
+                        full.names = TRUE)
+aln_file
+```
+
+Read this into R
+
+```{r}
+aln <- read.fasta(aln_file[1], to.upper = TRUE)
+```
+
+How many sequences are in this alignment
+
+```{r}
+dim(aln$ali)
+```
+
+We can score residue conservation in the alignment with the `conserv()` function.
+
+```{r}
+sim <- conserv(aln)
+
+plotb3(sim[1:99], sse=trim.pdb(pdb, chain="A"),
+       ylab="Conservation Score")
+```

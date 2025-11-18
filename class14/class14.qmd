@@ -1,0 +1,290 @@
+---
+title: "Class 14: RNASeq mini project"
+author: "Mai Tamura (PID: A18594079)"
+format: pdf
+toc: true
+---
+
+## Background
+
+Here we work through a complete RNASeq analysis project. The input data comes from a knock-down experiment of a HOX gene
+
+
+## Data Import
+
+Reading the `counts` and `metadata` CSV files
+
+```{r}
+counts <- read.csv("GSE37704_featurecounts.csv", row.names = 1)
+metadata <- read.csv("GSE37704_metadata.csv", row.names = 1)
+```
+
+Check on data structure
+
+```{r}
+head(counts)
+```
+
+```{r}
+head(metadata)
+```
+
+Some book-keeping is required as there looks to be a mis-match between metadata rows and counts
+
+```{r}
+ncol(counts)
+```
+
+```{r}
+nrow(metadata)
+```
+
+> Looks like we need to get rid of the first "lengths" column of our `counts` 
+
+```{r}
+cleancounts <- counts[,-1]
+head(cleancounts)
+```
+
+```{r}
+colnames(cleancounts)
+```
+
+
+## Remove zero count genes
+
+> There are lots of genes with zero counts so let's get rid of them
+
+```{r}
+head(cleancounts)
+```
+
+```{r}
+to.keep.inds <- rowSums(cleancounts) > 0
+nonzero_counts <- cleancounts[to.keep.inds, ]
+```
+
+
+## DESeq analysis
+
+Load the package
+
+```{r, message=FALSE}
+library(DESeq2)
+```
+
+Setup DESeq object
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = nonzero_counts,
+                              colData = metadata,
+                              design = ~condition)
+head(dds)
+```
+
+Run DESeq
+
+```{r}
+dds <- DESeq(dds)
+head(dds)
+```
+
+Get results
+
+```{r}
+res <- results(dds)
+head(res)
+```
+
+> Get a sense of how many genes are up or down-regulated at the default 0.1 p-value cutoff
+
+```{r}
+summary(res)
+```
+
+
+## Data Visualization
+
+Volcano plot
+
+```{r}
+library(ggplot2)
+
+ggplot(res) +
+  aes(log2FoldChange, -log(padj)) +
+  geom_point()
+```
+
+> Add threshold lines for fold-change and P-value and color our subset of genes that make these threshold cut-offs in the plot
+
+```{r}
+mycols <- rep("gray", nrow(res))
+mycols[ abs(res$log2FoldChange) > 2 ] <- "blue"
+
+ggplot(res) +
+  aes(log2FoldChange, -log(padj), col = mycols) +
+  geom_point() +
+  geom_hline(yintercept = -log(0.05), col = "red") +
+  geom_vline(xintercept = c(2, -2), col = "red")
+```
+
+
+## Add Annotation
+
+Add gene symbols and entrez ids
+
+```{r}
+library(AnnotationDbi)
+library(org.Hs.eg.db)
+```
+
+```{r}
+columns(org.Hs.eg.db)
+```
+
+> Add "SYMBOL", "ENTREZID" and "GENENAME" annotation to our results
+
+```{r}
+res$symbol <- mapIds(keys = row.names(res), # our current IDs
+                     keytype = "ENSEMBL",   # the format of our IDs
+                     x = org.Hs.eg.db,      # where to get the mappings from
+                     column = "SYMBOL")     # the format/DB to map to
+
+res$entrez <- mapIds(keys = row.names(res), # our current IDs
+                     keytype = "ENSEMBL",   # the format of our IDs
+                     x = org.Hs.eg.db,      # where to get the mappings from
+                     column = "ENTREZID")   # the format/DB to map to
+
+res$genename <- mapIds(keys = row.names(res), # our current IDs
+                       keytype = "ENSEMBL",   # the format of our IDs
+                       x = org.Hs.eg.db,      # where to get the mappings from
+                       column = "GENENAME")   # the format/DB to map to
+
+head(res, 5)
+```
+
+> Let's reorder these results by adjusted p-value and save them to a CSV file in your current project directory
+
+```{r}
+res_reorder <- res[order(res$pvalue),]
+write.csv(res_reorder, file="deseq_results.csv")
+```
+
+
+## Pathway Anlysis
+
+### KEGG pathways
+Run gage analysis with KEGG
+
+```{r, message=FALSE}
+library(gage)
+library(gageData)
+library(pathview)
+```
+
+We need a names vector of fold-change values as input for gage
+
+```{r}
+foldchanges = res$log2FoldChange
+names(foldchanges) = res$entrez
+head(foldchanges)
+```
+
+```{r}
+data(kegg.sets.hs)
+
+keggres = gage(foldchanges, gsets = kegg.sets.hs)
+```
+
+```{r}
+head(keggres$less, 5)
+```
+
+```{r}
+pathview(pathway.id = "hsa04110", gene.data = foldchanges)
+```
+
+Add this pathway figure to our lab report
+
+![](hsa04110.pathview.png)
+
+> Do the same procedure as above to plot the pathview figures for the top 5 down-reguled pathways
+
+```{r}
+pathview(pathway.id = "hsa03030", gene.data = foldchanges)
+```
+
+![](hsa03030.pathview.png)
+
+```{r}
+pathview(pathway.id = "hsa05130", gene.data = foldchanges)
+```
+
+![](hsa05130.pathview.png)
+
+```{r}
+pathview(pathway.id = "hsa03013", gene.data = foldchanges)
+```
+
+![](hsa03013.pathview.png)
+
+```{r}
+pathview(pathway.id = "hsa03440", gene.data = foldchanges)
+```
+
+![](hsa03440.pathview.png)
+
+
+### GO terms
+
+Same analysis but this focuses on biological meaning or function of genes
+
+```{r}
+data(go.sets.hs)
+data(go.subs.hs)
+
+# Focus on Biological Process subset of GO
+gobpsets = go.sets.hs[go.subs.hs$BP]
+
+gobpres = gage(foldchanges, gsets=gobpsets, same.dir=TRUE)
+```
+
+```{r}
+lapply(gobpres, head)
+```
+
+
+### Reactome
+
+Lots of folks like the Reactome web interface. You can also run this as an R function but let's look at the website first < https://reactome.org/ >
+
+The website wants a text file with one gene symbol per line of the gene you want to map to pathways.
+
+```{r}
+sig_genes <- res[res$padj <= 0.05 & !is.na(res$padj), ]$symbol
+head(sig_genes) # res$symbol
+```
+
+and write out to a file:
+
+```{r}
+write.table(sig_genes, file = "significant_genes.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+> Q. What pathway has the most significant “Entities p-value”? Do the most significant pathways listed match your previous KEGG results? What factors could cause differences between the two methods?
+
+"Cell Cycle" has the most significant Entities p-value in the Reactome analysis, and this matches the most significant pathway in the KEGG results. However, the values differ because Reactome and KEGG vary in database content, statistical methods, gene-mapping strategies, and pathway definitions.
+
+
+## Save our data
+
+```{r}
+write.csv(res, file="myresults.csv")
+```
+
+
+
+
+
+
