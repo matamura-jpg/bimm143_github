@@ -1,7 +1,7 @@
 ---
 title: "Class 9: Structural Bioinfomatics (Pt. 1)"
 author: "Mai Tamura (PID: A18594079)"
-format: html
+format: gfm
 toc: true
 ---
 
