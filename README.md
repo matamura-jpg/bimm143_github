@@ -1,5 +1,5 @@
 # BIMM143
-Classwork for [BIMM143 at UCSD San Diego] ( https://bioboot.github.io/bimm143_F25/ ) during Fall 2025.
+Classwork for [BIMM143 at UCSD San Diego](https://bioboot.github.io/bimm143_F25/) during Fall 2025.
 
 - Class 04 [R fundamentals]()
   
